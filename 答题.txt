@@ -897,6 +897,11 @@
 		top命令打开系统监控页面，可以按照CPU占用率做一个排序。找到占用率最高的进程。
 		继续top命令，跟上进程Id参数，查看其中的线程列表，并且找到CPU利用率最高的线程。
 		如果是Java线程的话，那么可以用jstack命令导出该线程的堆栈信息，进而定位到代码位置。
+
+104.优化点
+	a.如果有些接口比较复杂，后台消耗资源较多，比较耗时，那么在暴露出去的时候，一定要做好防护。比如前端的相关点击按钮，点击一次后在没有返回结果前要置灰，防止用户着急频繁点击。可能造成后台相关资源飙升。当然前端不可信，还要从后端考虑接口的优化，然后这种耗时接口做好熔断。
+	b.判断数据存不存在是，如果是用conut(*)的话，要加上limit 1。这样避免过多的IO。
+	c.数据库脚本要保证可重复执行
 		
 
 面试官你好，我叫陶兴隆，目前在南京亚信科技任职Java后端开发。
@@ -1071,53 +1076,10 @@ dev环境 saas-common-setting tableHeaderReloadHandler这个job在跑，刷新�
 	topic：tp_yzg_tms_reporter_async_export_financial_topic
 	
 	
-	两个时间字段：评估需不需要检索（是不是跨域），不做检索
-	
-需求3：Lion迁移：
-	ConfigCache.getInstance().getProperty("es.es7-saas-customer.host");
-	@ConfigKey
-	@ConfigurationValue
-	saas-tms-reporter-app
-	saas-analysis-app
-
-	yzg-saas-reporter-app：代码无需改动
-
+	两个时间字段：评估需不需要检索（是不是跨域），不做检索	
 
 ===========================================================================
-
-
-1.	客户付款申请单列表满运宝tab页反馈无查看权限
-	路径：财务管理--付款申请单列表--满运宝支付：yzg-saas-financial-app/payment/apply/list/myb
-	报错：无运费申请单查询权限，请分配权限后再查看
-	公司名称：上海凌归物流有限公司
-	账号：1312065988
 	
-	函谷关-用户查询：https://hango.amh-group.com/#/monitor-request
-	输入手机号，用户身份选择TMS商户，没查到信息。
-	
-	运掌柜-客户管理-后台：https://boss.amh-group.com/region-yzg-crm/#/amis/view/tmsCrm-crmlist
-	输入客户名称：上海凌归物流有限公司，查询得到租户id
-	
-	Hubble查看链路：https://hubble.amh-group.com/#/logcenter/elasticsearch-biz?domain=hubble&logSearchType=1&project=&roomName=default&query=&map%5Bpro%5D=hubble&map%5Bip%5D=sche&startTime=1630634059000&endTime=1630635858999&currentTime=30m
-	应用监控-搜索框中输入接口对应的服务名：yzg-saas-financial-app
-	日志中心-网管日志：在用户ID处输入刚才查到的租户ID，请求URL输入接口地址后缀，日期选择调用日期，查询。
-	问题大概是下午5点之前发生，查看附近的日志：在详情处找到一条相应和报错一致，查看链路。
-	在链路分析和原始链路里面找对应的RPC调用的方法名等关键字
-	
-	1.列表查看是通过RPC调用满运宝的接口，在满运宝那里的权限判断没通过。
-	2.运掌柜加了相应的权限，同步权限到满运宝对应的权限：但是没有同步成功。
-	
-2.	异步同步动作（调用RPC）链路：查看调用tmsSyncUser的链路
-	应用监控-Call-方法请选择-输入tmsSyncUser-勾选-汇总
-	
-3.	客户在运单列表和司机付款申请页面发起司机付款申请时提示“分段付数据异常”：操作支付时提示分段支付数据异常
-	路径：财务管理--付款管理--司机付款
-	
-	提交增补协议：修改了待支付金额，ES里面的数据更新成功了，DB里面的数据还是旧数据
-	
-	看看提交增补协议接口：/yzg-saas-trans-app/contract/submitContractSupplement里面有没有更新DB和同步ES的逻辑
-	
-	提交了增补协议后，还需要司机确认才算协议增补成功。
 	
 4.	RMQ消费消息：99线（99%）的RT是3103.88ms，导致binlog集群消息堆积
 	从链路上看：加分布式锁，sleep（因为同步ES时，需要查从库，因为主从延迟慢了将近1s，所以sleep了1s）：大致消耗了3s	
@@ -1139,7 +1101,9 @@ dev环境 saas-common-setting tableHeaderReloadHandler这个job在跑，刷新�
 	这个RPC的99%的RT是800-900ms左右的，一般不会达到1s，极少情况下RT会超过1s。
 	
 	我感觉昨天那个RPC不适合再加RT，因为这个RPC 99%的RT都是900ms以内的，一般不会达到1s超时。而且接口的RT99%已经是2s左右了，比较慢了。感觉不需要为了极少数的情况来改变原有的配置，可能还会降低原有的体验。而且这个RPC即使超时了也是弱依赖，下次刷新数据可能就很快出来了。
-	用的地方再future.get()，future提交了就直接get，就相当于同步查询了。	
+
+
+6.	需要结果的时候，再future.get()，future提交了就直接get，就相当于同步查询了。	
 	
 	
 	
