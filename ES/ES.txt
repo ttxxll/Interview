@@ -1,0 +1,1574 @@
+docker安装ElasticSearch
+1.	创建网络
+	因为我们还需要部署kibana容器，因此需要让es和kibana容器互联，这里先创建一个网络。
+	docker network create es-net
+
+2.	加载镜像
+	ElasticSearch版本7.12.1
+	docker pull elasticsearch:7.12.1
+
+3.	启动容器
+docker run -d \
+	--name es \
+	-e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+	-e "discovery.type=single-node" \
+	-v es-data:/usr/share/elasticsearch/data \
+	-v es-plugins:/usr/share/elasticsearch/plugins \
+	--privileged \
+	--network es-net \
+	-p 9200:9200 \
+	-p 9300:9300 \
+elasticsearch:7.12.1
+
+	-v：该参数指定即--volume参数，用于创建卷或宿主机文件系统的路径挂载到容器中，以实现容器与宿主机之间的数据共享和持久化存储。这个参数的具体用途包括：
+	-v es-data:/usr/share/elasticsearch/data：告诉docker将卷es-data挂载到容器中的/usr/share/elasticsearch/data目录，这意味着容器内的/usr/share/elasticsearch/data目录将与卷es-data关联，容器内的数据将被持久化存储到这个卷中。
+	docker run -v /host/path:/container/path my-image：将宿主机文件系统的路径挂载到容器中，这使得容器可以访问宿主机上的文件和目录，以便与宿主机之间共享数据。上述例子将宿主机上的/host/path目录挂载到容器的/container/path目录中。
+
+	--privileged：授予逻辑卷访问权
+	--network es-net：加入一个名为es-net的网络中
+	-p 9200:9200 ：端口映射配置
+
+
+4.	kibana:7.12.1
+	docker load -i /usr/local/src/kibana.tar
+	将kibana.tar上传到虚拟机，加载镜像
+
+5.	启动容器
+docker run -d \
+--name kibana \
+-e ELASTICSEARCH_HOSTS=http://es:9200 \
+--network=es-net \
+-p 5601:5601  \
+kibana:7.12.1
+
+6.	安装ik分词器（对中文支持好）
+	找到es插件的挂载目录：
+	docker volume inspect es-plugins
+	[
+		{
+			"CreatedAt": "2023-09-26T16:52:14+08:00",
+			"Driver": "local",
+			"Labels": null,
+			"Mountpoint": "/var/lib/docker/volumes/es-plugins/_data",
+			"Name": "es-plugins",
+			"Options": null,
+			"Scope": "local"
+		}
+	]
+	
+	docker volume inspect es-plugins：用于检查docker中一个特定卷的详细信息，其中es-plugins是卷的名称
+
+	将提前下载好的ik分词器放到对应目录下：/var/lib/docker/volumes/es-plugins/_data
+
+7.	重启容器		docker restart es 
+	查看es日志	docker logs -f es
+
+#######docker安装rabbitMQ
+// 拉取镜像
+docker pull rabbitmq:3-management
+	这是一个用于从Docker Hub下载（拉取）RabbitMQ镜像的命令。下面是对每个部分的解释：
+	docker pull: 这是Docker命令，用于从远程仓库（默认是Docker Hub）拉取镜像。
+	rabbitmq:3-management: 这是要拉取的镜像的标识符。在这里，rabbitmq 是镜像的名称，3-management 是标签（tag）。标签指定了特定版本或配置的镜像。3-management 表示 RabbitMQ 版本为 3.x，并包含了管理界面。
+	综合起来，这个命令的目的是从Docker Hub拉取一个带有RabbitMQ服务和管理界面的镜像，版本为3.x。一旦运行这个命令，Docker将从Docker Hub下载相应的镜像到本地计算机，以便稍后在容器中使用。这是在准备运行 RabbitMQ 容器之前的一项准备工作。
+
+// 运行容器
+docker run \
+ -e RABBITMQ_DEFAULT_USER=root \
+ -e RABBITMQ_DEFAULT_PASS=root \
+ --name rabbitmq \
+ --hostname rabbitmq1 \
+ -p 15672:15672 \
+ -p 5672:5672 \
+ -d \
+ rabbitmq:3-management
+
+	docker run: 这是Docker运行容器的命令。
+
+	-e RABBITMQ_DEFAULT_USER=root -e RABBITMQ_DEFAULT_PASS=root: 通过这两个参数设置了RabbitMQ的默认用户名和密码。在这里，用户名设置为 "root"，密码也设置为 "root"。
+	--name mq: 通过 --name 参数，指定容器的名称为 "rabbitmq"。
+	--hostname mq1: 通过 --hostname 参数，指定容器的主机名为 "rabbitmq1"。
+	-p 15672:15672 -p 5672:5672: 通过 -p 参数，指定将主机的端口映射到容器内的端口。在这里，将主机的15672端口映射到容器的15672端口（RabbitMQ的管理界面端口），将主机的5672端口映射到容器的5672端口（RabbitMQ的AMQP协议端口）。
+	-d: 使用 -d 参数将容器设置为在后台运行（以守护进程模式）。
+	rabbitmq:3-management: 指定要运行的镜像。在这里，使用的是 RabbitMQ 的带有管理界面的3版本镜像。rabbitmq:3-management 包含RabbitMQ服务以及一个Web管理界面，可以通过15672端口访问。
+
+################################################DSL语句
+
+{
+	"info": "如果您想在使用 docker logs -f 命令查看实时日志时检索关键字，可以使用 Linux 中的管道（pipe）以及 grep 工具来过滤日志。以下是如何做的步骤吧。",
+	"email": "add1231@abc.com",
+	"name": {
+		"lastName": "云",
+		"firstName": "赵"
+	}
+}
+
+// 创建索引库，指定映射（约束）
+PUT /txl #库名：txl
+{
+  "mappings": {
+    "properties": {
+      "info": { 
+        "type": "text", # info字段是text类型
+        "index": true,  # 并且参与搜索
+        "analyzer": "ik_max_word" # text类型的一般需要分词，指定分词器是ik 
+      },
+      "email": {
+        "type": "keyword", #email字段是keyword，不需要分词
+        "index": false # 而且不参与搜索
+      },
+      "name": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "keyword", # firstName字段是keyword，不需要分词
+            "index": true	# 但是参与搜索
+          },
+          "lastName": {
+            "type": "keyword" # firstName字段是keyword，不需要分词，参与搜索（index默认值是true）
+          }
+        }
+      }
+    }
+  }
+}
+
+# 创建索引库，指定mappings
+# id统一用text中的keyword类型
+# condition_name_brand_business字段作为一个联合查询的字段：前提是name_brand_business都参与搜素，联合字段的分词器和单个字段的分词器一致，否则单独查询联合字段和同时查询构成联合字段的多个字段的结果可能不一致
+PUT /hotel
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword", 
+        "index": true
+      },
+      "name": {
+        "type": "text",
+        "index": true,
+        "analyzer": "ik_max_word",
+        "copy_to": "condition_name_brand_business"
+      },
+      "address": {
+        "type": "text",
+        "index": true,
+        "analyzer": "ik_max_word"
+      },
+      "price": {
+        "type": "integer",
+        "index": true
+      },
+      "score": {
+        "type": "integer",
+        "index": true
+      },
+      "brand": {
+        "type": "keyword",
+        "index": true,
+        "copy_to": "condition_name_brand_business"
+      },
+      "city": {
+        "type": "keyword",
+        "index": true
+      },
+      "starName": {
+        "type": "keyword",
+        "index": true
+      },
+      "business": {
+        "type": "text",
+        "index": true,
+        "analyzer": "ik_smart",
+        "copy_to": "condition_name_brand_business"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "pic": {
+        "type": "text",
+        "index": false
+      },
+      "condition_name_brand_business": {
+        "type": "text",
+        "index": true,
+        "analyzer": "ik_smart"        
+      }
+    }
+  }
+}
+
+# 查看索引库
+GET /hotel
+
+// 文档操作
+POST /索引库名/_doc/文档id
+{
+	...
+}
+
+// 查询文档
+GET /索引库名/_doc/文档id
+
+// 删除文档
+DELETE /索引库名/_doc/文档id
+
+// 修改文档
+// 全量修改：覆盖原来的文档
+PUT /索引库名/_doc/文档id 
+{
+	...
+}
+// 修改指定字段
+POST /索引库名/_update/文档id
+{
+	"doc": {
+		"":""
+	}
+} 
+
+
+# 模拟http://192.168.42.134:9200/请求
+GET /
+
+# 创建文档
+POST /txl/_doc/1
+{
+    "info" : "如果您想在使用 docker logs -f 命令查看实时日志时检索关键字。",
+    "email" : "ttadd1231@abc.com",
+    "age" : 18,
+    "name" : {
+      "lastName" : "云南",
+      "firstName" : "赵"
+    }
+}
+
+# 查看文档
+GET /txl/_doc/1
+
+# 删除文档
+DELETE /txl/_doc/1
+
+# 修改文档
+# 修改email字段
+POST /txl/_update/1
+{
+  "doc": {
+    "email": "niuniuniu@qq.com"
+  }
+}
+# 覆盖id=1的文档
+PUT /txl/_doc/1
+{
+    "info" : "查看实时日志时检索关键字。",
+    "email" : "ttadd1231@abc.com",
+    "age" : 222,
+    "name" : {
+      "lastName" : "云南",
+      "firstName" : "老八"
+    }
+}
+
+
+# 只删除索引中的所有数据，不删除索引结构
+POST /hotel/_delete_by_query
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+# 查询所有
+# match_all：查询所有不带条件
+GET /hotel/_search
+{
+ "query": {
+   "match_all": {}
+ } 
+}
+
+
+==========================================================全文检索查询============================================
+# match查询：对输入内容做分词后，再全文检索找到任意匹配（指定的字段任意匹配）的所有文档
+1.match查询keyword字段时（keyword字段本身不分词）：需要完全匹配
+# match查询keyword字段：需要完全匹配
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "brand": "如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "brand": {
+        "require_field_match": "false", 
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+######查不出结构，没有brand完全匹配"上海如家"，所以match查询keyword要完全匹配（可以认为此时的match检索语句不做分词）
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "brand": "上海如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "brand": {
+        "require_field_match": "false", 
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+2.match查询text字段时，只需要match分词后的词条和text字段分词后的词条有一个匹配即可
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "condition_name_brand_business": "外滩如家"
+    }
+  }
+}
+
+# multi_match：与match类似，但是允许同时查询多个字段。有任意一个字段满足即可
+GET /hotel/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "外滩如家",
+      "analyzer": "ik_smart", 
+      "fields": ["name", "brand", "business"]
+    }
+  }
+}
+
+# 两个查询效果一样，但是上面的联合字段效率高，因为查询的字段越多，效率越低。所以建议如果要查询多个字段时，将这多个字段用copy_to拷贝到一个字段进行查询匹配
+# 注意：效果一样的前提是联合字段的分词器和单个字段的分词器一致，否则结果可能不一致
+# 举例：name，brand的分词器是ik_max_word，business的分词器是ik_smart，联合字段的分词器是ik_smart。我们在搜索框查询“外滩如家”关键字时，如果用的是方法1在联合字段中检索。因为联合字段的分词器是ik_smart，所以"_id"="432335"的文档的如下3各字段会合并起来然后用的是ik_smart分词器： "name" : "7天连锁酒店(上海北外滩国际客运中心地铁站店)" "business" : "北外滩地区" "brand" : "7天酒店"。导致了name和business字段中只会分出“北外滩”分词term。所以用方法1即联合字段进行查询时，我们输入的“外滩如家”会被分为“外滩”和“如家”两个分词term，所以“外滩”不匹配“北外滩”，所以"_id"="432335"的文档没有被查出来。而方法2中在多个字段中进行匹配时，name字段用的是ik_max_word分词器，会分出“外滩”分词，所以可以查出"_id"="432335"的文档
+POST /_analyze
+{
+ "analyzer": "ik_smart",
+ "text": "7天连锁酒店(上海北外滩国际客运中心地铁站店)"
+}
+POST /_analyze
+{
+ "analyzer": "ik_smart",
+ "text": "7天酒店"
+}
+POST /_analyze
+{
+ "analyzer": "ik_smart",
+ "text": "北外滩地区"
+}
+
+==========================================================精确查询============================================
+# 如果要检索的条件不需要进行分词，而且要完全相同才算匹配，就要用精确匹配。
+# term：根据词条精确查询
+1.term查询语句不分词
+2.term查询Keyword字段（keyword字段本身是不分词的），需要完全匹配
+3.term查询text字段，能命中text字段分词后的某个词条即可
+GET /hotel/_search
+{
+  "query": {
+    "term": {
+      "city": {
+        "value": "上海"
+      }
+    }
+  }
+}
+
+#term查询text字段，能命中text字段分词后的某个词条即可
+GET /hotel/_search
+{
+  "query": {
+    "term": {
+      "name": "如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+
+# range：范围查询
+# gte大于等于，gt大于
+GET /hotel/_search
+{
+  "query": {
+    "range": {
+      "price": {
+        "gte": 1000,
+        "lte": 3000
+      }
+    }
+  }
+}
+
+========================================================地理查询============================
+#根据经纬度查询，常见的场景：搜索我附近的酒店，搜索我附近的出租车，搜索我附近的人
+# 1.geo_bounding_box：查询geo_point值落在某个矩形范围内的所有文档
+# top_left指定左上角的一个点，bottom_right指定右下角一个点，这两个点构成一个矩形。location字段值落在这个矩形范围内的就是匹配的文档
+GET /hotel/_search
+{
+  "query": {
+    "geo_bounding_box": {
+      "location": {
+        "top_left": {
+          "lat": 31.1,
+          "lon": 121.5
+        },
+        "bottom_right": {
+          "lat": 30.9,
+          "lon": 121.7          
+        }
+      }
+    }
+  }
+}
+
+# geo_distance查询：查询到指定中心点小于某个距离值的所有文档
+# 查询所有location字段的值到31.21, 121.5这个点的距离小于5km的所有文档
+GET /hotel/_search
+{
+  "query": {
+    "geo_distance": {
+      "distance": "5km",
+      "location": "31.21, 121.5"
+    }
+  }
+}
+
+================================复合查询===============================
+================================function socre query算分函数查询===============================
+复合（Compound）查询：复合查询可以将其他简单查询组合起来，实现更复杂的搜索逻辑。比如：
+我们在利用match查询时，查询的文档结果会根据与搜索词条的关联度打分，返回结果时按照分值降序排列。常见的相关性打分算法有TF和BM25，都会随着搜索词条的频度增大而增大的，只不过BM25增长的曲线会趋于水平。我们可以认为的指定打分规则，类似于百度竞价。
+
+function socre query：算分函数查询，可以控制文档相关性算分，控制文档查询结果的排名。
+
+GET /hotel/_search
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "match": {
+          "condition_name_brand_business": "外滩"
+        }
+      },
+      "functions": [
+        {
+          "filter": {
+            "term": {"brand": "如家"}
+          },
+          "weight": 10
+        }
+      ],
+      "boost_mode": "multiply"
+    }
+  }
+}
+
+先根据搜索词条"外滩"到condition_name_brand_business字段中匹配，得到查询结果
+然后到查询结果中找brand中匹配"如家"的文档，为其重新算分，算分规则是：原来的算分*10.
+
+
+分析语法：
+1. 	原始查询条件，搜索文档并根据相关性打分得到查询结果query score
+      "query": {
+        "match": {
+          "condition_name_brand_business": "外滩"
+        }
+2.	过滤条件，符合条件的文档才会被重新算分
+
+          "filter": {
+            "term": {"id": "1"}
+          }
+
+3.	算分函数：算分函数的结果称为函数结果function socre，将来会与query socre运算，得到新算分
+	"weight": 10
+	常见的算分函数有：
+	weight：给一个常量值，作为函数结果function socre
+	field_value_factor：用文档中的某个字段值作为函数结果function socre
+	random_score：随机生成一个值，作为函数结果function socre
+	script_score：自定义计算公式，公式结果作为函数结果function socre
+
+4.	加权模式：定义function socre与query score的运算方式
+	"boost_mode": "multiply"
+	常见如下：
+	multiply：两者相乘
+	replace：用function score替换query score
+	其他：sum，avg，max，min
+	
+
+================================boolean query布尔查询===============================
+布尔查询时一个或多个查询子句的组合，子查询的组合方式有：
+must：必须匹配每隔子查询，类似“与”
+should：选择性匹配子查询，类似“或”：不是必须匹配，只是会更有先的匹配。
+must_not：必须不匹配，不参与算分，类似“非”
+filter：必须匹配，不参与算分
+
+GET /hotel/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"name":"上海"}}
+      ],
+      "should": [
+        {"term": {"brand": "皇冠假日"}},
+        {"term": {"brand": "华美达"}}
+      ],
+      "must_not": [
+        {"range": {"price": {"lte": 500}}}
+      ],
+      "filter": [
+        {"range": {"score": {"gte":45}}}
+      ]
+    }
+  }
+}
+
+分析：
+查找name中包含“上海”词条，brand字段是"皇冠假日"或"华美达"会优先匹配（不是这两个brand，如果满足city和price也会匹配出来），并且price大于500，并且评分score大于等于45，而且price和score不参与算分，不影响结果文档的排序
+注意：不是仅匹配这两个brand，如果满足city和price也会匹配出来，只是这两个brand会优先匹配（结果在前）。
+
+GET /hotel/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "term": {
+            "city": "上海"
+          }
+        },
+        {
+          "bool": {
+            "should": [
+              {
+                "term": {
+                  "brand": "7天酒店"
+                }
+              },
+              {
+                "term": {
+                  "brand": "万怡"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "filter": {
+        "range": {
+          "price": {
+            "gte": 159,
+            "lte": 336
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+分析：
+必须：city=上海
+必须：价格在159~336之间（不参与匹配算分）
+必须：品牌是7天酒店或者万怡（不参与算分，不影响结果文档的排序）
+
+==========================================match关键字全文检索查询作为bool检索的一部分===============================
+# 名字包含“如家”（match全文检索查询作为bool检索的一部分），价格不高于400，在坐标31.21, 121.5周围10km范围内的酒店
+GET /hotel/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"name": "如家"}},
+        {"geo_distance": {
+          "distance": "10km",
+          "location": {"lat": 31.21, "lon": 121.5}
+        }}
+      ],
+      "must_not": [
+        {"range": {"price": {"gt": 400}}}
+      ]
+    }
+  }
+}
+如果我不想让location参与算分：
+GET /hotel/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"name": "如家"}}
+      ],
+      "must_not": [
+        {"range": {"price": {"gt": 400}}}
+      ], 
+      "filter": [
+        {"geo_distance": {
+          "distance": "10km",
+          "location": {"lat": 31.21, "lon": 121.5}
+        }}
+      ]
+    }
+  }
+}
+
+
+
+================================对结果排序===============================
+#elastic search支持对结果排序，默认是根据相关度算分_score来排序的。我们也可以自己指定排序字段进行替换。
+#可以排序的字段类型有：keyword类型，数值类型，地理坐标类型，日期类型等。
+
+# 1.对所有的酒店数据按照用户评价降序排序，评价相同的按照价格升序排序。
+GET /hotel/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "score": {"order": "desc"},
+      "price": {"order": "asc"}
+    }
+  ]
+}
+# 2.地理坐标排序：文档中location字段距离31.21, 121.5坐标升序排序
+GET /hotel/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "_geo_distance": {
+        "location": {
+          "lat": 31.21,
+          "lon": 121.5
+        },
+        "order": "asc",
+        "unit": "km"
+      }
+    }
+  ]
+}
+
+============================================指定分页=======================================
+#elastic search默认情况下只返回top10的数据，而如果要查询更多数据就需要修改分页参数
+#elastic search通过修改from，size参数来控制要返回的分页结果
+GET /hotel/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "from": 10, // 分页开始的位置，默认是0
+  "size": 5, // 期望获取的文档总数
+  "sort": [
+    {
+      "price": "desc"
+    }
+  ]
+}
+缺点：因为ES是分布式的，所以每隔节点都有一份不同的数据，数据的排序是独立的，我们把每个节点上的数据称为数据分片。加入我们想要取一个系统中排序在from=990，size=10的数据，在ES分布式的情况这样做：
+1.	首先在每个数据分片上都排序并查询前1000条文档。
+2.	然后将所有的数据分片的前1000条结果聚合，在内存中重新排序选出前1000条文档
+3.	最后从这1000条中，选取990开始的10条文档。
+如果搜索页数过深，即结果集太大（from+size），对内存和CPU的消耗也越高。因此ES设定结果集查询的上限是10000.即from+size不能大于10000
+
+
+====================================高亮================================================
+高亮：在结果中把搜索关键字突出显示
+ES的高亮原理：将搜索结果中的关键字用标签标记出来，在页面中给这个标签加上css样式
+
+语法：
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "condition_name_brand_business": "如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+发现查询出来的name字段中的“如家”关键词没有被<em/>标签包住，
+原因：默认情况下ES搜索字段必须与高亮字段一致时，才会高亮
+
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "name": "如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+结果：
+"hits" : [
+      {
+        "_index" : "hotel",
+        "_type" : "_doc",
+        "_id" : "339952837",
+        "_score" : 2.0645075,
+        "_source" : {
+          "address" : "良乡西路7号",
+          "brand" : "如家",
+          "business" : "房山风景区",
+          "city" : "北京",
+          "id" : 339952837,
+          "location" : "39.73167, 116.132482",
+          "name" : "如家酒店(北京良乡西路店)",
+          "pic" : "https://m.tuniucdn.com/fb3/s1/2n9c/3Dpgf5RTTzrxpeN5y3RLnRVtxMEA_w200_h200_c1_t0.jpg",
+          "price" : 159,
+          "score" : 46,
+          "starName" : "二钻"
+        },
+        "highlight" : {
+          "name" : [
+            "<em>如家</em>酒店(北京良乡西路店)"
+          ]
+        }
+      },
+
+如果我们就是想在联合字段中查找：因为查询的字段越多，效率越低。所以建议如果要查询多个字段时，将这多个字段用copy_to拷贝到一个字段进行查询匹配。
+解决：我们显示的指定不需要ES搜索字段必须与高亮字段一致
+GET /hotel/_search
+{
+  "query": {
+    "match": {
+      "condition_name_brand_business": "如家"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {
+        "require_field_match": "false", 
+        "pre_tags": "<em>", 
+        "post_tags": "</em>"
+      }
+    }
+  }
+}
+
+================================广告置顶：给文档加上字段========================
+# 给文档加上字段
+POST /hotel/_update/1725781423
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+POST /hotel/_update/2003479905
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+POST /hotel/_update/2056298828
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+POST /hotel/_update/2056298828
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+POST /hotel/_update/395787
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+POST /hotel/_update/36934
+{
+  "doc": {
+    "isAD": true
+  }
+}
+
+GET /hotel/_search
+{
+  "query": {
+    "term": {
+      "isAD": {
+        "value": true
+      }
+    }
+  }
+}
+
+
+===算分查询：查询所有且cit="上海"的文档，选择其中isAD=true将其query socre * 10
+GET /hotel/_search 
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {"match_all": {}},
+            {"term": {"city": "上海"}}
+          ]
+        }
+      },
+      "functions": [
+        {
+          "filter": {
+            "term": {"isAD": true}
+          },
+          "weight": 10
+        }
+      ],
+      "boost_mode": "multiply"
+    }
+  }
+}
+
+====================================ES 聚合 aggregations==============================
+聚合可以实现对文档数据的统计，分析，运算。聚合常见的有三类
+桶Bucket聚合：用来对文档做分组
+	TermAggregation：按照文档字段值分组（只能对keyword类型的字段进行分组）。
+	Date Histogram：按照日期阶梯分组，例如一周一组，或者一个月一组
+度量Metric聚合：用来计算，比如最大值，最小值，平均值
+	Avg：求平均值
+	Max：求最大值
+	Min：求最小值
+	Stats：同时求max，min，avg，sum等
+管道pipeline聚合：以其他聚合的结果为基础再做聚合
+
+注意：参与聚合的字段类型必须是如下等不做分词的字段
+	keyword
+	数值
+	日期
+	布尔
+
+========================Bucket聚合 统计有多少个酒店品牌
+#### 统计一共有多少品牌
+GET /hotel/_search
+{
+  "size": 0, // 设置size为0，不显示文档数据，结果中不包含文档，只包含聚合结果
+  "aggs": { // 定义聚合
+    "brandAgg": { // 给聚合起个名字
+      "terms": { // 聚合的类型，桶聚合，按照品牌聚合，所以选择term
+        "field": "brand", // 参与聚合的字段
+        "size": 20 // 希望获取的聚合结果数量（品牌数量）
+      }
+    }
+  }
+}
+
+默认情况下，Bucket聚合会统计Bucket内的文档数量，记为_count，并且按照_count降序排序，我们可以修改排序方式
+#### 升序
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20,
+        "order": {
+          "_count": "asc"
+        }
+      }
+    }
+  }
+}
+
+默认情况下，Bucket聚合是对索引库的所有文档做聚合，我们可以限定要聚合的文档范围，先通过query条件缩小范围。
+#### query缩小聚合范围：只对价格在200及以下的做聚合
+GET /hotel/_search
+{
+  "query": {
+    "range": {
+      "price": {
+        "lte": 200
+      }
+    }
+  },
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20
+      }
+    }
+  }
+}
+aggs代表聚合，与query同级，此时query的作用是：限定聚合的文档范围
+
+聚合必须的三要素：聚合名称，聚合类型，聚合字段
+聚合可配置的属性有：size指定聚合结果数量，order指定聚合结果排序方式，field指定聚合字段
+
+======================Metrix聚合：统计每个品牌的用户评分的min，max，avg值
+########### metrix聚合：求每个品牌的score的min，max，avg。在按照brand聚合的基础上，再聚合求min，max，avg
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": { // bucket聚合 先按照brand
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20
+      },
+      "aggs": { // 在按照brand桶聚合的（brandAgg结果）基础上，再计算3个聚合
+        "minScore": {
+          "min": {
+            "field": "score"
+          }
+        },
+        "maxScore": {
+          "max": {
+            "field": "score"
+          }
+        },
+        "avgScore": {
+          "avg": {
+            "field": "score"
+          }
+        }
+      }
+    }
+  }
+}
+
+######## 也可以用stats同时求max，min，avg，sum
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20
+      },
+      "aggs": {
+        "scoreAgg": {
+          "stats": {
+            "field": "score"
+          }
+        }
+      }
+    }
+  }
+}
+
+##### 再按照每个品牌的平均分排序：每个bucket就相当于一个分组，内层的聚合就是根据每组元素再次聚合
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20,
+        "order": {
+          "avgScore.value": "asc" // 因为这个聚合的结果的层级是avgScore.value，所以这里这样写
+        }
+      },
+      "aggs": {
+        "minScore": {
+          "min": {
+            "field": "score"
+          }
+        },
+        "maxScore": {
+          "max": {
+            "field": "score"
+          }
+        },
+        "avgScore": {
+          "avg": {
+            "field": "score"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20,
+        "order": {
+          "scoreAgg.avg": "asc" // 因为这个聚合的结果的层级是scoreAgg.avg，所以这里这样写
+        }
+      },
+      "aggs": {
+        "scoreAgg": {
+          "stats": {
+            "field": "score"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+####在所有数据的基础上求：根据brand聚合的结果 和 根据score聚合的结果
+GET /hotel/_search
+{
+  "size": 0,
+  "aggs": {
+    "brandAgg": {
+      "terms": {
+        "field": "brand",
+        "size": 20,
+        "order": {
+          "_count": "asc"
+        }
+      }
+    },
+    "scoreAgg": {
+      "stats": {
+        "field": "score"
+      }
+    }
+  }
+}
+
+
+
+####### 拼音分词器
+要实现根据字母做补全，就必须对文档按照拼音分词。在Github上恰好有elasticsearch的拼音分词插件。
+地址https://github.com/medcl/elasticsearch-analysis-pinyin
+安装方式与IK分词器一样（参考ik分词器的安装），分三步：
+	1.解压
+	2.上传到虚拟机，elasticsearch的plugin目录
+	3.重启elasticsearch
+
+POST /_analyze
+{
+  "text": ["如家酒店还不错"],
+  "analyzer": "pinyin"
+}
+
+
+================================================自动补全和拼音分词器=====================================
+需求：我在搜索框中输入h或者黄，会在搜索框下方弹出关联的分词，比如皇冠假日，华美达，和颐...
+
+1.	首先：需要将文档的中要搜索的字段分词后还能得到分词对应的拼音：比如皇冠假日，就要切割出分词：皇冠，huangguang，hg，假日，jiari，jr。
+	但是拼音分词器默认只会这样做分词：huang，h，guang，g，jia，j，ri，r，hgjr。拼音分词器有这样的问题：
+	a.首先根本就不会分词：将这句话作为了整体，然后得到拼音首字母还有每个字都作为一个分词，得到拼音和首字母
+	b.没有汉字，只剩下了拼音。大部分情况下还是输入汉字，根据汉字进行搜索的。
+	注意：拼音分词其的keep_joined_full_pinyin默认是false，所以默认不会得到全拼，级皇冠不会分出huangguan分词。
+2.	所以我们要为索引为自定义分词器：我们先学习下分词器的3个组成部分
+	a.character filters：是分词的第一步执行者，先对文本做一些处理，比如删除字符，替换字符。比如将:)替换成开心，:(替换成伤心
+	b.tokenizer：第二步tokenizer将文本按照一定的规则（分词器）切割成词条，注意keyword是不分词的。如果不是keyword并且指定的是ik_smart就按照ik_smart规则分词
+	c.tokenizer filter：将tokenizer输出的词条做进一步处理。比如将词条转成拼音。大小写转换，同义词处理等。
+3.	解决拼音分词的两个问题
+	不会分词：所以我们可以指定自定义的分词器的tokenizer是ik，也就是该自定义分词器按照ik分词。然后指定tokenizer filter是拼音，将tokenizer得到的词条再交给拼音分词器做分词处理。这里就解决了拼音分词器不会分词的问题。
+	单独一个字的分词和没有保留中文：但是这里还是有问题。比如皇冠假日经过ik_max_word分词后得到皇冠，假日两个分词。再将这两个分词交给拼音分词器后，拼音分词器默认会将其分成huang，h，guan，g，hg...我们不想让拼音分词器再这样单独一个字的分词，不要一个字一个字的拼音和拼音首字母，我们想要的是ik分好词后的分词整体的拼音和拼音首字母，即huangguan，hg。所以我们要对拼音分词器做一些设置。而且我们还要保留中文。
+	https://github.com/medcl/elasticsearch-analysis-pinyin 在官方文档上面有一些配置，比如keep_original 保留中文，keep_joined_full_pinyin按分词整体得到全拼。keep_full_pinyin：一个字一个字的拼。
+4.	最后得到如下的自定义分词器，语法如下：my_analyzer分词器只对test索引库起作用
+	################自定义分词器：只对test索引库起作用
+	PUT /test
+	{
+	  "settings": {
+		"analysis": {
+		  "analyzer": { 
+			"my_analyzer": { 
+			  "tokenizer": "ik_max_word",
+			  "filter": "py" // 分词后转成拼音，但是这个拼音分词器做了配置，还会保留汉字，并且按照整体进行分词（不再分词，即不再分成一个个的字）
+			}
+		  },
+		  "filter": { //自定义tokenizer filter
+			"py": { // tokenizer filter名称
+			  "type": "pinyin",
+			  "keep_full_pinyin": false,
+			  "keep_joined_full_pinyin": true,
+			  "keep_original": true,
+			  "limit_first_letter_length": 16,
+			  "remove_duplicated_term": true,
+			  "none_chinese_pinyin_tokenize": false
+			}
+		  }
+		}
+	  },
+	  "mappings": {
+		"properties": {
+		  "name": {
+			"type": "text",
+			"analyzer": "my_analyzer"
+		  }
+		}
+	  }
+	}
+5.	注意点：上述场景中（拼音分词），拼音分词适合在创建倒排索引的时候使用，但不能在搜索的时候对搜索词分词。否则会搜索到同音字。
+	比如有两个文档：1.狮子，2.虱子。按照我们的自定义分词会得到：狮子，shizi，sz，虱子，shizi，sz。最后得到4个词条，其中shizi，sz这两个词条都会对应着分档编号1，2	倒排索引情形如下：
+
+	词条		文档编号
+	狮子		1
+	shizi	1 2
+	sz		1 2
+	虱子		2
+	
+	假如此时输入狮子，在进行搜索时我们用的也是自定义搜索器对输入进行分词，此时狮子会被分词成狮子，shizi，sz，其中shizi，sz会匹配到1，2文档，所以最终的结果就是1.狮子，2.虱子 这两个分档都被匹配了出来，匹配到了同音字虱子。
+	所以：拼音分词适合在创建倒排索引的时候使用，但不能在搜索的时候对搜索词分词（不适合对输入进行分词）
+	
+	自定义分词器语法改进：指定字段在进行搜索时用ik分词器（其实就是我们在进行查询时，会拿着输入的搜索词到指定的字段进行查询搜索，此时如果指定的字段其指定了搜索分词器，那么输入的搜索词就会按照这个搜索分词器进行分词）。
+	PUT /test
+	{
+	  "settings": {
+		"analysis": {
+		  "analyzer": { 
+			"my_analyzer": { 
+			  "tokenizer": "ik_max_word",
+			  "filter": "py"
+			}
+		  },
+		  "filter": { //自定义tokenizer filter
+			"py": { // tokenizer filter名称
+			  "type": "pinyin",
+			  "keep_full_pinyin": false,
+			  "keep_joined_full_pinyin": true,
+			  "keep_original": true,
+			  "limit_first_letter_length": 16,
+			  "remove_duplicated_term": true,
+			  "none_chinese_pinyin_tokenize": false
+			}
+		  }
+		}
+	  },
+	  "mappings": {
+		"properties": {
+		  "name": {
+			"type": "text",
+			"analyzer": "my_analyzer",
+			"search_analyzer": "ik_max_word" // 指定字段在进行搜索时用ik分词器
+		  }
+		}
+	  }
+	}
+
+
+###################自动补全：completion suggester查询#####################################
+elasticsearch提供了completion suggester查询来实现自动补全功能。
+这个查询会将用户输入的内容，到索引库中，根据我们语法指定的字段，去匹配那些以输入的关键字作为前缀的所有词条并返回。
+为了提高补全查询的效率，对于文档中字段的类型有一些约束。
+1.	参与补全查询的字段必须是completion类型
+2.	字段的内容一般是用来补全的多个词条形成的数组
+
+语法：
+// 自动补全的索引库
+PUT test1
+{
+  "mappings": {
+    "properties": {
+      "title":{
+        "type": "completion"
+      }
+    }
+  }
+}
+// 添加文档数据
+POST /test1/_doc
+{
+  "title": ["Sony", "WH-1000XM3"]
+}
+POST /test1/_doc
+{
+  "title": ["SK-II", "PITERA"]
+}
+POST /test1/_doc
+{
+  "title": ["Nintendo", "switch"]
+}
+
+
+// 自动补全查询
+GET /test1/_search
+{
+  "suggest": {
+    "titleSuggest": { // 定义补全查询的名称
+      "text": "s", // 前缀是 s 
+      "completion": { // suggest查询类型：补全
+        "field": "title", // 要进行查询的字段title
+        "skip_duplicates": true, // 跳过重复的词条
+        "size": 10 // 取前10个结果
+      }
+    }
+  }
+}
+
+#############实现hotel索引库的自动补全，拼音搜索功能
+实现思路如下：
+1.	修改hotel索引库接口，设置自定义拼音分词其
+2.	修改索引库的name，condition_name_brand_business字段，使用自定义分词器text_anlyzer
+3.	索引库添加一个新字段suggestion，类型是completion，使用自定义分词器completion_analyzer
+4.	给HotelDoc类添加suggestion字段，内容包含brand，business
+5.	重新导入数据到hotel索引库
+
+// 删除旧的hotel索引
+DELETE /hotel
+
+// 新建一个有带拼音分词器和补全功能索引：酒店数据索引库
+PUT /hotel
+{
+  "settings": {
+    "analysis": { // 自定义了两个分词器，做全文检索查询时用text_anlyzer，做补全查询时用completion_analyzer
+      "analyzer": {
+        "text_anlyzer": {
+          "tokenizer": "ik_max_word",
+          "filter": "py"
+        },
+        "completion_analyzer": { // 自定义分词器
+          "tokenizer": "keyword", // tokenizer的分词规则是keyword，意味着不分词。因为在补全查询中，我们要补全的是一个个的词条，所以这些词条不分词
+          "filter": "py" // 分词后转成拼音，但是这个拼音分词器做了配置，还会保留汉字，并且按照整体进行分词（不再分词，即不再分成一个个的字）
+        }
+      },
+      "filter": {
+        "py": {
+          "type": "pinyin",
+          "keep_full_pinyin": false,
+          "keep_joined_full_pinyin": true,
+          "keep_original": true,
+          "limit_first_letter_length": 16,
+          "remove_duplicated_term": true,
+          "none_chinese_pinyin_tokenize": false
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id":{
+        "type": "keyword"
+      },
+      "name":{
+        "type": "text",
+        "analyzer": "text_anlyzer",
+        "search_analyzer": "ik_smart",
+        "copy_to": "condition_name_brand_business"
+      },
+      "address":{
+        "type": "keyword",
+        "index": false
+      },
+      "price":{
+        "type": "integer"
+      },
+      "score":{
+        "type": "integer"
+      },
+      "brand":{
+        "type": "keyword",
+        "copy_to": "condition_name_brand_business"
+      },
+      "city":{
+        "type": "keyword"
+      },
+      "starName":{
+        "type": "keyword"
+      },
+      "business":{
+        "type": "keyword",
+        "copy_to": "condition_name_brand_business"
+      },
+      "location":{
+        "type": "geo_point"
+      },
+      "pic":{
+        "type": "keyword",
+        "index": false
+      },
+      "condition_name_brand_business":{
+        "type": "text",
+        "analyzer": "text_anlyzer", // 在文档被索引（加入到ES中）时，ES用text_anlyzer对condition_name_brand_business进行分词
+        "search_analyzer": "ik_smart" // 当进行搜索查询时，输入的搜索词会经过ik_smart进行分词
+      },
+      "suggestion":{ // suggestion字段，类型是completion（安装用来进行补全查询的字段），分词器是completion_analyzer
+          "type": "completion",
+          "analyzer": "completion_analyzer"
+      }
+    }
+  }
+}
+
+// 我们这里定义每个文档的补全字段是由brand和business组成的集合：比如输入一个w，就会自动补全出来外滩xxx。输入一个x，补全出来希尔顿等
+this.suggestion = Arrays.asList(this.brand, this.business);
+
+// 执行测试类，导入数据
+cn.itcast.hotel.HotelDocumentTest#testBulkAddDocument
+
+// 测试补全查询
+GET /hotel/_search
+{
+  "suggest": {
+    "mySuggestionQuery": {
+      "text": "sd",
+      "completion": {
+        "field": "suggestion",
+        "skip_duplicates": true,
+        "size": 10
+      }
+    }
+  }
+}
+匹配到："suggestion" : ["如家", "上地产业园/西三旗"]分析一下：
+上地产业园/西三旗：这个词条是suggestion字段，类型是completion，分词器是completion_analyzer。
+completion_analyzer分词器的分词规则是不分词（按照keyword对待），然后再经过拼音分词器得到拼音。
+所以 上地产业园/西三旗 经过分词后得到 上地产业园/西三旗 和 sdcyyxsq 和 shangdichanyeyuan/xisanqi 3个词条。前缀匹配了sd。
+
+// 验证一下：结果如我们预想
+POST /hotel/_analyze
+{
+  "text": ["上地产业园/西三旗"],
+  "analyzer": "completion_analyzer"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "上地产业园/西三旗",
+      "start_offset" : 0,
+      "end_offset" : 9,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "shangdichanyeyuanxisanqi",
+      "start_offset" : 0,
+      "end_offset" : 9,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "sdcyyxsq",
+      "start_offset" : 0,
+      "end_offset" : 9,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}
+
+// 查询结果：
+{
+  "took" : 19,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 0,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "suggest" : {
+    "mySuggestionQuery" : [
+      {
+        "text" : "sd",
+        "offset" : 0,
+        "length" : 2,
+        "options" : [
+          {
+            "text" : "上地产业园/西三旗",
+            "_index" : "hotel",
+            "_type" : "_doc",
+            "_id" : "2359697",
+            "_score" : 1.0,
+            "_source" : {
+              "address" : "清河小营安宁庄东路18号20号楼",
+              "brand" : "如家",
+              "business" : "上地产业园/西三旗",
+              "city" : "北京",
+              "id" : 2359697,
+              "location" : "40.041322, 116.333316",
+              "name" : "如家酒店(北京上地安宁庄东路店)",
+              "pic" : "https://m.tuniucdn.com/fb3/s1/2n9c/2wj2f8mo9WZQCmzm51cwkZ9zvyp8_w200_h200_c1_t0.jpg",
+              "price" : 420,
+              "score" : 46,
+              "starName" : "二钻",
+              "suggestion" : [
+                "如家",
+                "上地产业园/西三旗"
+              ]
+            }
+          },
+          {
+            "text" : "首都机场/新国展地区",
+            "_index" : "hotel",
+            "_type" : "_doc",
+            "_id" : "395702",
+            "_score" : 1.0,
+            "_source" : {
+              "address" : "首都机场3号航站楼三经路1号",
+              "brand" : "希尔顿",
+              "business" : "首都机场/新国展地区",
+              "city" : "北京",
+              "id" : 395702,
+              "location" : "40.048969, 116.619566",
+              "name" : "北京首都机场希尔顿酒店",
+              "pic" : "https://m.tuniucdn.com/fb2/t1/G6/M00/52/10/Cii-U13ePtuIMRSjAAFZ58NGQrMAAGKMgADZ1QAAVn_167_w200_h200_c1_t0.jpg",
+              "price" : 222,
+              "score" : 46,
+              "starName" : "五钻",
+              "suggestion" : [
+                "希尔顿",
+                "首都机场/新国展地区"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+=================================================================
+
+// 注意：如果有数字，拼音分词器还是会将其作为一个分词单独分出来
+POST /hotel/_analyze
+{
+  "text": ["7天酒店"],
+  "analyzer": "completion_analyzer"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "7",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "7天酒店",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "tianjiudian",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "7tjd",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}
+
+// 如果是汉字，结果和上地产业园/西三旗一样
+POST /hotel/_analyze
+{
+  "text": ["七天酒店"],
+  "analyzer": "completion_analyzer"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "七天酒店",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "qitianjiudian",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "qtjd",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}
+
+
+======================================注意：=====================================
+
+"query": {
+        "match": {
+          "condition_name_brand_business": "7天酒店"
+        }
+      }
+
+因为是match全文检索，所以7天酒店被分成7天和酒店，只有有7天和酒店的都会被匹配到。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,185 @@
+docker安装
+1.	首先安装必须的管理工具，使用Linux 终端命令，安装用到的软件包和工具。
+	sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+
+	yum-utils：是一个 Yum 扩展工具集，提供了一些额外的命令和功能，用于管理和维护 Yum 软件包管理器。
+	device-mapper-persistent-data：是 Linux 设备映射器的持久化数据包，提供了设备映射器的持久化功能。
+	lvm2：是逻辑卷管理器（LVM）的软件包，提供了一组用于创建、扩展和管理逻辑卷和卷组的工具。
+	-y 参数用于在安装过程中自动应答所有问题为 “yes”，从而避免安装过程中需要手动确认。这样一来，整个命令将会自动安装指定的软件包和工具。
+
+2.	通过 Yum 添加 Docker 仓库配置，使用以下指令
+	sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+	这行代码是一个用于配置 Yum 的命令，它会添加一个新的仓库配置文件到 /etc/yum.repos.d/ 目录中，以便通过 Yum 下载和安装 Docker 软件。每个部分的含义：
+
+	sudo: sudo 是一个 Linux 命令，允许普通用户以超级用户的身份执行特权命令。
+	yum-config-manager: 这个命令用于配置 Yum 软件包管理器的相关设置。
+	--add-repo: 该选项告诉 yum-config-manager 命令要添加一个新的仓库。
+	https://download.docker.com/linux/centos/docker-ce.repo: 这个参数指定了一个远程仓库的 URL，它是 Docker CE (Community Edition) 在 CentOS 系统上的官方软件仓库。
+
+	当我们执行这个命令时，它会下载并添加一个名为 docker-ce.repo 的仓库配置文件到 /etc/yum.repos.d/ 目录中。这样一来，我们就可以使用 Yum 来安装和更新 Docker 软件了。
+
+	当看到下列代码时，代表Docker仓库配置已经添加成功了：
+	grabbing file https://download.docker.com/linux/centos/docker-ce.repo to /etc/yum.repos.d/docker-ce.repo
+	repo saved to /etc/yum.repos.d/docker-ce.repo
+	第一行 grabbing file https://download.docker.com/linux/centos/docker-ce.repo to /etc/yum.repos.d/docker-ce.repo 是一个通知消息，表示正在从指定的 URL 下载一个文件，并将其保存到指定的路径中。
+	第二行 repo saved to /etc/yum.repos.d/docker-ce.repo 是一个确认消息，表示该仓库配置文件已成功保存到 /etc/yum.repos.d/docker-ce.repo 路径中。
+	这个过程意味着该 Docker 软件仓库的配置文件已经被正常下载并保存到指定位置，可以继续使用 Yum 来管理和安装 Docker 软件包。
+
+3.	通过sudo yum install -y docker-ce docker-ce-cli 安装 Docker CE (Community Edition) 软件
+	sudo yum install -y docker-ce docker-ce-cli
+	这行代码使用 Yum 安装 Docker CE (Community Edition) 软件的命令。
+
+	sudo: sudo 是一个 Linux 命令，允许普通用户以超级用户的身份执行特权命令。
+	yum install: 这是 Yum 包管理器的命令，用于安装软件包。
+	-y: 这是一个选项，表示在安装过程中自动应答所有提示，无需手动确认。
+	docker-ce docker-ce-cli: 这是要安装的软件包的名称。docker-ce 是 Docker CE 软件的主要组件，docker-ce-cli 是用于与 Docker 进行交互的命令行工具。
+
+	当我们执行这个命令时，Yum 会自动从 Docker CE 软件仓库中下载相关的软件包，然后安装 Docker CE 和 Docker CE CLI 到你的系统中。安装过程中，我们不需要手动确认任何提示，Yum 会自动处理。
+
+4. 安装完成后，启动Docker，并设置开机自启动
+	sudo systemctl start docker
+	sudo systemctl enable docker
+
+	上面两行代码是使用 systemctl 命令操作 Docker 服务的命令。
+	sudo systemctl start docker: 这个命令用于启动 Docker 服务，以便开始运行和管理 Docker 容器。
+	sudo systemctl enable docker: 这个命令用于将 Docker 服务设置为开机启动，确保在系统重启后自动启动 Docker。
+
+	执行这两个命令后，Docker 服务将会启动，并且在系统重启后也会自动启动。这样，我们就能够在系统中使用 Docker 容器了。
+	执行sudo systemctl enable docker命令后，返回以下代码
+	Created symlink from /etc/systemd/system/multi-user.target.wants/docker.service to /usr/lib/systemd/system/docker.service.
+	这个输出表示成功创建了一个符号链接，将 /usr/lib/systemd/system/docker.service 文件链接到 /etc/systemd/system/multi-user.target.wants/docker.service。
+
+	在系统中，/etc/systemd/system/multi-user.target.wants/ 目录包含了所有需要在多用户模式下启动的系统服务。通过创建符号链接，即将指向 Docker 服务的配置文件的路径添加到该目录，就能够实现在系统启动时自动启动 Docker 服务。
+	这通常是在执行 sudo systemctl enable docker 命令后的输出结果，表示已成功设置 Docker 服务为开机启动。
+
+5.	验证Docker是否安装成功，输入docker --version
+	能看到版本号，代表Docker安装成功
+
+6.	升级Docker引擎
+	sudo yum -y upgrade docker
+	这行代码的含义是通过yum命令以root权限升级Docker软件包。
+
+	sudo：以root（超级用户）权限执行后续命令。需要输入当前用户的密码以确认权限。
+	yum：是包管理器，用于在基于RPM（Red Hat Package Manager）的Linux发行版中安装、升级和删除软件包。
+	-y：在运行yum命令时，自动回答所有的提示和确认信息为"yes"，以自动进行安装和升级等操作，避免需要手动确认。
+	upgrade：通过yum命令进行软件包的升级操作。
+	docker：指定要升级的软件包的名称，这里是Docker。
+
+	请注意，在执行这条命令之前，我们要确保 Docker 引擎的存储库已经被正确地设置并且启用。
+
+7.	安装docker-compose
+	 curl -L https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-linux-x86_64 -o /usr/bin/docker-compose
+	这个命令用于下载 Docker Compose 的二进制文件并将其保存到 /usr/bin/docker-compose 这个路径上。
+
+	curl -L：使用 curl 命令进行下载，-L 参数表示要跟随重定向。
+	https://github.com/docker/compose/releases/download/v2.18.1/docker-compose-linux-x86_64：下载的 URL，这是 Docker Compose 版本 2.18.1 的 Linux x86_64 二进制文件的下载链接。
+	-o /usr/bin/docker-compose：-o 参数指定下载的文件保存路径为 /usr/bin/docker-compose。
+	这个命令将从指定的 URL 下载 Docker Compose 的二进制文件，并保存在 /usr/bin/docker-compose 这个位置。在运行这个命令之前，我们要具有充足的权限来写入到该目录下。
+
+8.	进入以下路径：cd /usr/bin/
+
+9.	将 /usr/bin/docker-compose 设置为可执行文件：
+	sudo chmod +x /usr/bin/docker-compose
+	这个命令将赋予 /usr/bin/docker-compose 文件执行权限，允许我们在终端中直接运行该文件。这里要确保我们有足够的权限来执行此命令。
+
+10.	查询docker-compose安装版本：
+
+	docker-compose -v
+
+	完成安装及配置
+
+
+docker安装ElasticSearch
+1.	创建网络
+	因为我们还需要部署kibana容器，因此需要让es和kibana容器互联，这里先创建一个网络。
+	docker network create es-net
+
+2.	加载镜像
+	ElasticSearch版本7.12.1
+	docker pull elasticsearch:7.12.1
+
+3.	启动容器
+docker run -d \
+	--name es \
+	-e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+	-e "discovery.type=single-node" \
+	-v es-data:/usr/share/elasticsearch/data \
+	-v es-plugins:/usr/share/elasticsearch/plugins \
+	--privileged \
+	--network es-net \
+	-p 9200:9200 \
+	-p 9300:9300 \
+elasticsearch:7.12.1
+
+	-v：该参数指定即--volume参数，用于创建卷或宿主机文件系统的路径挂载到容器中，以实现容器与宿主机之间的数据共享和持久化存储。这个参数的具体用途包括：
+	-v es-data:/usr/share/elasticsearch/data：告诉docker将卷es-data挂载到容器中的/usr/share/elasticsearch/data目录，这意味着容器内的/usr/share/elasticsearch/data目录将与卷es-data关联，容器内的数据将被持久化存储到这个卷中。
+	docker run -v /host/path:/container/path my-image：将宿主机文件系统的路径挂载到容器中，这使得容器可以访问宿主机上的文件和目录，以便与宿主机之间共享数据。上述例子将宿主机上的/host/path目录挂载到容器的/container/path目录中。
+
+	--privileged：授予逻辑卷访问权
+	--network es-net：加入一个名为es-net的网络中
+	-p 9200:9200 ：端口映射配置
+
+
+4.	kibana:7.12.1
+	docker load -i /usr/local/src/kibana.tar
+	将kibana.tar上传到虚拟机，加载镜像
+
+5.	启动容器
+docker run -d \
+--name kibana \
+-e ELASTICSEARCH_HOSTS=http://es:9200 \
+--network=es-net \
+-p 5601:5601  \
+kibana:7.12.1
+
+6.	安装ik分词器（对中文支持好）
+	找到es插件的挂载目录：
+	docker volume inspect es-plugins
+	[
+		{
+			"CreatedAt": "2023-09-26T16:52:14+08:00",
+			"Driver": "local",
+			"Labels": null,
+			"Mountpoint": "/var/lib/docker/volumes/es-plugins/_data",
+			"Name": "es-plugins",
+			"Options": null,
+			"Scope": "local"
+		}
+	]
+	
+	docker volume inspect es-plugins：用于检查docker中一个特定卷的详细信息，其中es-plugins是卷的名称
+
+	将提前下载好的ik分词器放到对应目录下：/var/lib/docker/volumes/es-plugins/_data
+
+7.	重启容器		docker restart es 
+	查看es日志	docker logs -f es
+
+
+
+#######docker安装rabbitMQ
+// 拉取镜像
+docker pull rabbitmq:3-management
+	这是一个用于从Docker Hub下载（拉取）RabbitMQ镜像的命令。下面是对每个部分的解释：
+	docker pull: 这是Docker命令，用于从远程仓库（默认是Docker Hub）拉取镜像。
+	rabbitmq:3-management: 这是要拉取的镜像的标识符。在这里，rabbitmq 是镜像的名称，3-management 是标签（tag）。标签指定了特定版本或配置的镜像。3-management 表示 RabbitMQ 版本为 3.x，并包含了管理界面。
+	综合起来，这个命令的目的是从Docker Hub拉取一个带有RabbitMQ服务和管理界面的镜像，版本为3.x。一旦运行这个命令，Docker将从Docker Hub下载相应的镜像到本地计算机，以便稍后在容器中使用。这是在准备运行 RabbitMQ 容器之前的一项准备工作。
+
+// 运行容器
+docker run \
+ -e RABBITMQ_DEFAULT_USER=root \
+ -e RABBITMQ_DEFAULT_PASS=root \
+ --name rabbitmq \
+ --hostname rabbitmq1 \
+ -p 15672:15672 \
+ -p 5672:5672 \
+ -d \
+ rabbitmq:3-management
+
+	docker run: 这是Docker运行容器的命令。
+
+	-e RABBITMQ_DEFAULT_USER=root -e RABBITMQ_DEFAULT_PASS=root: 通过这两个参数设置了RabbitMQ的默认用户名和密码。在这里，用户名设置为 "root"，密码也设置为 "root"。
+	--name mq: 通过 --name 参数，指定容器的名称为 "rabbitmq"。
+	--hostname mq1: 通过 --hostname 参数，指定容器的主机名为 "rabbitmq1"。
+	-p 15672:15672 -p 5672:5672: 通过 -p 参数，指定将主机的端口映射到容器内的端口。在这里，将主机的15672端口映射到容器的15672端口（RabbitMQ的管理界面端口），将主机的5672端口映射到容器的5672端口（RabbitMQ的AMQP协议端口）。
+	-d: 使用 -d 参数将容器设置为在后台运行（以守护进程模式）。
+	rabbitmq:3-management: 指定要运行的镜像。在这里，使用的是 RabbitMQ 的带有管理界面的3版本镜像。rabbitmq:3-management 包含RabbitMQ服务以及一个Web管理界面，可以通过15672端口访问。
