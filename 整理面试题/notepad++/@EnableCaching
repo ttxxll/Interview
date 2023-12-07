@@ -1,0 +1,27 @@
+
+	405：URL请求方式错误
+	403：权限不够，被禁用。 forbidden
+	400：参数错误: Bad Request
+	
+	
+###################Redis###########
+
+1.	应用场景
+
+	首页数据变化不是很频繁，展示一写固定的内容。
+	而且访问量相对较大，
+	
+2.	使用：
+	
+	在主配置类上：@EnableCaching 开启缓存
+	
+	@Cacheable(value = "xxx", key = "'xxx'")：标注在方法上，对方法返回结果进行缓存。 
+	
+3.	字符串类型：
+
+	string
+	hash
+	list
+	set
+	sortedset
+	

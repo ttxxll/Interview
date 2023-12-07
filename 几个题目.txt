@@ -1,0 +1,41 @@
+BeanFactory和ApplicationContext
+	BeanFactory是Spring IOC容器的核心接口，它定义了IOC的基本功能，其中定义了getBean方法。getBean方法是ICO获取bean对象和引发依赖注入的起点。
+	BeanFactory接口提供了 IOC的基本核心功能，但是不支持Spring的aop功能，而ApplicationContext接口是BeanFactory的派生接口，具有BeanFactory的全部功能，还在ApplicationContext的共轭能上
+	做了扩展：
+		支持国际化的消息访问
+		支持事务传播特性，支持aop特性
+		BeanFactory是延迟加载的形式注入Bean即只有在使用到某个Bean是才对Bean进行加载实例化，不容易发现Spring事先的配置问题。
+		ApplicationConext是即时加载，在容器启动时就一次性创建了所有的Bean，可以提前发现Spring的配置错误。
+		
+		BeanFactory主要是面对Spring框架本身的，开发者用的话一般会那ApplicationConetxt
+
+Mybatis resulttype 单例对象 collection
+
+Spring的Bean的生命周期
+	1.实例化 Instantiation
+	2.属性赋值 Populate、
+	3.初始化 Initialization 实现BeanPostProcesser接口，重写其中的After和Before方法可以在Bean生命周期的初始化阶段的前后进行一些自定义的操作
+	4.销毁：一般在IOC容器关闭时调用 可以通过实现DisposableBean的destory方法，来在IOC容器关闭时执行destory方法进行一些自定义的销毁操作。
+	
+	通过构造方法进行实例化，通过setter方法注入
+	初始化和销毁是用户来自定的两个阶段
+
+Spring事务的传播机制
+	REQUIRED：外层无事务，则开启事务；外侧有事务，融合到外部事务中
+	SUPPORTS：外层无事务，不开启；外层有事务，融合到外部事务中
+	REQUIRES_NEW：如果外层有事务的，先挂起外部事物，开启本身的事务，本身的事务执行完再执行外部的事务
+	NOT_SUPPORTS：
+	NEVER：
+	MANDATORY：
+	
+	如果你在方法中有 try{}catch(Exception e){} 处理，那么 try 里面的代码块就脱离了事务的管理，若要事务生效需要在 catch 中 throw new RuntimeException ("xxxxxx"); 这一点也是面试中会问到的事务失效的场景。
+
+事务的隔离级别
+	脏读：读已提交READ_COMMITTED Oracle
+	不可重复读：可重复读REPEATABLE_READ 行锁  Mysql
+	幻影读：SERIALIZABLE 表锁
+	
+	效率从高到低  --> 并发安全性从低到高
+
+
+TreeMap和Hashmap的底层实现

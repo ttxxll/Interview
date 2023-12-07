@@ -1,0 +1,63 @@
+SrpingBoot：
+
+	自带嵌入式的Servlet容器，应用无需打成war包。
+	
+	spring-boot-dependencies:	SpringBoot的版本仲裁中心
+			|
+	spring-boot-starter-parent
+	
+	SpringBoot将所有功能都抽象成了一个个场景，每个场景都对应着一个启动器starter
+	
+	
+	
+	1.	@SpringBootApplication：
+	
+		标注在某个类上说明这个类就是SpringBoot的主配置类，SpringBoot就会运行这个类的main方法来启动SpringBoot应用。
+		
+	2. 	分析@SpringBootApplication注解
+	
+		是一个组合注解：
+		
+		@SpringBootConfiguration
+		
+			@SpringBootConfiguration：SpringBoot配置类
+			标注在某个类上：表示这是一个SpringBoot的配置类。
+			1.1.@Configuration：标注在配置类上。
+			是@SpringBootConfiguration中的一个注解
+				1.1.1.@Component：被标注的类要加载到IOC中
+				是@Configuration注解中的一个注解。
+				
+			所以第一个子注解相当于有以下作用：
+				1.指明HelloWorldMainApplication是一个SpringBoot主配置类
+				2.而且HelloWorldMainApplication的对象要放到IOC中。
+
+
+        @EnableAutoConfiguration
+		
+			其中有两个子类：
+      
+			2.1 @AutoConfigurationPackage：
+			这个注解将主配置类（@SpringBootApplication标注的类）所在的包及其下面所有的子包下面的组件都扫描到IOC容器中。
+			这就是为什么我们没有配置文件仍然能将Controller扫描进去（在主配置类的子包下）。
+			
+			2.2 @Import({EnableAutoConfigurationImportSelector.class})
+        
+            给容器中导入一些组件。导入哪些组件由EnableAutoConfigurationImportSelector.class来指定。
+			
+			会加载"META-INF/spring.factories"目文件中指定的资源。获取EnableAutoConfiguration指定的值。
+			根据指定的值会给容器中导入非常多的自动配置类：xxxAutoConfiguration。
+			这些自动配置类的作用，就是给容器中导入这个场景需要的所有组件，并配置这些组件。
+			每一个自动配置类结合对应的 xxxProperties.java 读取配置文件进行自动配置功能
+			
+			些自动配置类都在：springboot-autoconfigure包下
+			
+	3.	和配置文件相关的注解
+	
+	@ConfigurationProperties(prefix = "person")：前提是要求你的属性都写在了application.properties/yml中
+	
+	@Value注解为单个属性注入
+	
+	和SpringBoot无关的配置，我们就希望放到别的配置文件中。
+	@PropertySource：加载指定的配置文件
+
+

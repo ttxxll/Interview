@@ -1,0 +1,234 @@
+23-10-24 复盘一下
+1.	需求上线：生产发布流程，灰度流量切入，切了一个进度时查看一下hubble的实时健康状态（健康概览，右键10s自动刷新） 第二天11点之前不能切流量
+2.	分析singleTicketInfo这个RPC是否需要增加PT
+	调用运输域RPC超时，运输域RPC因为查询的holo会比较慢，建议我们的RT（相应时间）设置大一点，当前设置该RPC调用的超时时间是1s
+	
+	评估一下总体的这个接口的RT，该RPC超时的占比
+	看一下接口的性能情况：hubble--应用监控--选择服务--URL--URL（输入要观测的URL）--选择时间
+	这个RPC 1s 的超时时间：是线程池的超时时间，还是RPC框架的超时间呢？是RPC框架的，而且future.get(time, unit)也有这种重载
+	我们网关的超时时间是5s，观察99线，发现这个接口的RT响应时间在2s左右，最大RT是8s的样子
+	这个RPC的99%的RT是800-900ms左右的，一般不会达到1s，极少情况下RT会超过1s。
+	
+	分析：我感觉昨天那个RPC不适合再加RT，因为这个RPC 99%的RT都是900ms以内的，一般不会达到1s超时。而且接口的RT99%已经是2s左右了，比较慢了。感觉不需要为了极少数的情况来改变原有的配置，可能还会降低原有的体验。而且这个RPC即使超时了也是弱依赖，下次刷新数据可能就很快出来了。
+	用的地方再future.get()，future提交了就直接get，就相当于同步查询了。
+	
+	最终：在代码里把RPC超时时间改成了1500ms
+	
+	根据XxxFacade类名能在一个xxxRpcConfig的类中找到XxxFacade的Bean定义，其中有Timeout的配置
+	
+3.	qa和prod 数据变更
+	直接在qa库执行修改语句会直接提示走变更工单，qa的功能自己审批即可。
+	同样，生产执行修改语句也会提示走变更工单，挨个找人审批
+	
+	yzg-saas-metadata.saas_object_page数据修改后，要手动执行一下Redis刷新的job（yzg-saas-metadata-app的cleanSaasObjectPageJobHandler 清洗低代码平台url）
+	
+	变更语句：
+	SET @content = (SELECT `show_content` FROM `saas_object_page` WHERE id = 157);
+	UPDATE `saas_object_page` 
+	SET `show_content` = (
+	SELECT REPLACE(
+		@content,
+		'您还可以添加客户微信进行咨询',
+		'您还可以添加客服微信进行咨询'  
+	  )
+	)
+	WHERE id = 157;
+	
+	因为value很长导致截断，采用的上面的语句。
+	
+4.	导出相关接口：代码会判断字段类型是不是BigDecimal，是的话有个fenToYuan的方法，小数点进两位
+	列表接口：返回数值类型，前端才会将分转化为元
+	
+5.	申请job权限：phantom--申请权限--历史工单--前往工单--找人审批通过
+
+6.	DMS权限申请：
+	包含hw yzg结尾的是生产从库：读权限
+	包含ali yzg是生产主库：只能申请写权限（修数据），不能读（防止慢查询）
+	logical库：读权限
+	预发是qa库
+==========================================================================
+研发大致流程：
+1.	打开dmpt研发管理管理平台
+2.	点进待办-追加任务：后端开发（任务名称），我自己（任务所属人） 计划工时 实际开始事件 计划完成时间
+3.	新增线上变更（服务端），新建分支：选择服务--分支名后缀（或者关联已有分支）
+4.	上线信息：支持灰度，上线版本号（参考wiki），是否需要toMaven（是否api模块有改动，有改动需要发jar包给外部依赖），书否需要去snapshot（参考wiki）
+5.	点击特性分支处的分支名：点击继承--点击部署dev
+6.	dev环境测试（泳道隔离）：我新建了个自己的泳道ttxxll
+7.	phantom选中要发的服务：发布dev，选中分支，分批，选择泳道（不选默认是default），
+
+排期：
+研发管理平台首页-待办任务-产线需求代办
+
+运单域+财务域
+属于财务域，目前两个域也正在拆分重构，当前的ES里面查的字段
+
+运单管理--点击系统运单号--再来一单--保存--在对账明细出多一行记录--生成对账单--在对账单生成一条记录
+
+提测延期：要在备注标明
+
+qa发版：研发管理平台--版本--服务端/H5版本--（上线日期）日常发布--服务端部署--勾选需求集成到release分支--灰度QA
+
+找异步动作的链路trace：
+	1.先根据关键字到业务日志中找到打印的日志---左侧有trace可以点击直接跳到链路
+	2.直接到异步接口的服务监控中看：应用监控--选择服务--Call
+
+没有traceid接口请求怎么看链路：Hubble-->调用链--->类型URL，关键字：url:"/yzg-saas-financial-app/bill/selectCustomerList"
+
+master分支提示有冲突：本地更新master，将master合到dev，再推dev
+
+申请job权限：phantom--申请权限--历史工单--前往工单--找人审批通过
+
+刷新低代码缓存：执行job 清洗低代码平台url
+
+需求1：
+运掌柜-运单管理-运单列表-导出：/yzg-saas-trans-app/ordersearch/asyncOrderSearchExport
+导出的体积字段和列表录入时的提及字段小数位保持一致
+
+导出接口--Spring事件发布器--事件监听中发mq消息--找到对应的消费者：yzg-saas-reporter-app
+	
+代码里有一个开关控制着走哪个集群，不同的集群发不同的topic，yzg-saas-trans-app.mq.cluster.switch集群切换开关：
+	true走regional集群，topic是tp_yzg_trans_export
+	false走saas集群，topic是tp_saas_trans_export
+我去Lion上看了这个开关在dev关了，但是生产是开着的，所以我先在dev上把这个开关打开。
+	1.到云平台（云平台的qa和dev是一个地址）：https://qa-phantom.amh-group.com/#/application/list
+	2.应用列表-我的-配置所在的服务：trans-app
+	3.往下拉一点-Lion配置-搜索配置名-编辑
+	
+怎么找消费者：yzg-saas-reporter-app
+	1.MQ控制台-ACL管理-准入查询-输入topic查询
+	2.hubble-应用监控-RMQ-关系
+	
+	
+DMS权限申请：
+	hw结尾的是生产从库：读权限
+	ali是生产主库：只能申请写权限（修数据），不能读（防止慢查询）
+	logical库：读权限
+	预发是qa库
+	
+重启服务：
+	phantom找到对应的服务--机器&容器--重启
+	
+yzg-saas-reporter-app找到监听tp_yzg_trans_export这个topic的地方，发现代码里又发送一个内部同步MQ消息。
+根据上面的开关，走不同的集群，发送不同的topic：
+	true走reginal集群：tp_yzg_tms_reporter_async_export_topic
+	false走saas集群：tp_saas_tms_reporter_async_export_topic
+	因为是内部同步消息，直接在找yzg-saas-reporter-app到监听tp_yzg_tms_reporter_async_export_topic的位置，最后找到了导出的代码
+
+找到查询运单数据的地方，发现通过RPC又调回到yzg-saas-trans-app了
+	"bizcode":"order_search_list_head"对应着这个OrderExportDataFetchServiceImpl
+
+
+
+需求2：对账明细页面增加单票毛利等字段
+1.目前还不是需求owner，从dmpt研发管理平台找到对应需求：需求-需求池-池名称TMS-带规划找到需求-后续可以让领导将需求转给我
+单票毛利、单票收入、单票成本
+
+财务管理-客户对账-对账明细
+
+查看列表页面的key：点击字段过滤按钮--有一个/yzg-saas-common-setting-app/table/header/source接口--入参就是列表页面的key
+
+dev环境 saas-common-setting tableHeaderReloadHandler这个job在跑，刷新设置到表头到Redis，因为我们和saas用的一个Redis集群，所以我们也相当于刷新了
+
+两个页面：
+列表financial_customer_list_v2： /yzg-saas-financial-app/bill/selectCustomerList  
+对账单详情列表financial_customer_statement_detail_v2： /yzg-saas-financial-app/bill/selectCustomerList
+
+看一下接口的性能情况：hubble--应用监控--选择服务--URL--URL（输入要观测的URL）--选择时间
+
+单票收入，单票成本，单票毛利，单票毛利率
+    private BigDecimal singleTicketProfit;
+    private BigDecimal singleTicketIncome;
+    private BigDecimal singleTicketCost;
+
+
+单票收入，单票成本，单票毛利，单票毛利率
+
+合计的问题：
+	比如列表数据有多个分页，那么合计字段是合计全部数据的。如果某个字段是来自外部通过RPC调用的，那么这个字段的聚合怎么做？
+	因为该字段不是在当前域维护的，所以进行聚合操作的话，就需要考虑怎么做，适不适合在我们这边做，要不要做聚合计算。
+	
+导出：/yzg-saas-financial-app/async/export/dispatcher
+	{
+	  "bizCode": "financial_customer_list_v2",
+	  "fileName": "客户对账明细",
+	  "queryField": "{\"billType\":1,\"statementType\":1,\"menuCode\":170110,\"carriageTime\":[\"2023-09-16 00:00:00\",\"2023-10-16 23:59:59\"],\"operatorCharType\":\"GT\",\"orderMap\":{},\"searchMap\":{}}"
+	}
+
+	com.saas.yzg.financial.server.export.header.customer.CustomerStatementDetailHeaderV2#getExportInfo
+	{
+	  "bizCode": "financial_customer_statement_detail_v2",
+	  "fileName": "未指定客户客户对账单详情_ZD20231013000002",
+	  "queryField": "{\"reconcileId\":\"910250572027854848\"}"
+	}
+	topic：tp_yzg_tms_reporter_async_export_financial_topic
+	
+	
+	两个时间字段：评估需不需要检索（是不是跨域），不做检索
+	
+需求3：Lion迁移：
+	ConfigCache.getInstance().getProperty("es.es7-saas-customer.host");
+	@ConfigKey
+	@ConfigurationValue
+	saas-tms-reporter-app
+	saas-analysis-app
+
+	yzg-saas-reporter-app：代码无需改动
+
+
+===========================================================================
+
+
+1.	客户付款申请单列表满运宝tab页反馈无查看权限
+	路径：财务管理--付款申请单列表--满运宝支付：yzg-saas-financial-app/payment/apply/list/myb
+	报错：无运费申请单查询权限，请分配权限后再查看
+	公司名称：上海凌归物流有限公司
+	账号：1312065988
+	
+	函谷关-用户查询：https://hango.amh-group.com/#/monitor-request
+	输入手机号，用户身份选择TMS商户，没查到信息。
+	
+	运掌柜-客户管理-后台：https://boss.amh-group.com/region-yzg-crm/#/amis/view/tmsCrm-crmlist
+	输入客户名称：上海凌归物流有限公司，查询得到租户id
+	
+	Hubble查看链路：https://hubble.amh-group.com/#/logcenter/elasticsearch-biz?domain=hubble&logSearchType=1&project=&roomName=default&query=&map%5Bpro%5D=hubble&map%5Bip%5D=sche&startTime=1630634059000&endTime=1630635858999&currentTime=30m
+	应用监控-搜索框中输入接口对应的服务名：yzg-saas-financial-app
+	日志中心-网管日志：在用户ID处输入刚才查到的租户ID，请求URL输入接口地址后缀，日期选择调用日期，查询。
+	问题大概是下午5点之前发生，查看附近的日志：在详情处找到一条相应和报错一致，查看链路。
+	在链路分析和原始链路里面找对应的RPC调用的方法名等关键字
+	
+	1.列表查看是通过RPC调用满运宝的接口，在满运宝那里的权限判断没通过。
+	2.运掌柜加了相应的权限，同步权限到满运宝对应的权限：但是没有同步成功。
+	
+2.	异步同步动作（调用RPC）链路：查看调用tmsSyncUser的链路
+	应用监控-Call-方法请选择-输入tmsSyncUser-勾选-汇总
+	
+3.	客户在运单列表和司机付款申请页面发起司机付款申请时提示“分段付数据异常”：操作支付时提示分段支付数据异常
+	路径：财务管理--付款管理--司机付款
+	
+	提交增补协议：修改了待支付金额，ES里面的数据更新成功了，DB里面的数据还是旧数据
+	
+	看看提交增补协议接口：/yzg-saas-trans-app/contract/submitContractSupplement里面有没有更新DB和同步ES的逻辑
+	
+	提交了增补协议后，还需要司机确认才算协议增补成功。
+	
+4.	RMQ消费消息：99线（99%）的RT是3103.88ms，导致binlog集群消息堆积
+	从链路上看：加分布式锁，sleep（因为同步ES时，需要查从库，因为主从延迟慢的奖金1s，所以sleep了1s）：大致消耗了3s	
+	假设有6个线程去更新同一个记录（同一个id，结果可能是不一样的），根据binlog去同步ES，由分布式所控制。
+	都去抢分布式锁，因为id一样导致redis的key是同一个（key:lock_TMS_binlog_sync:saas_financial_new_bills_15_id_908072769558888448），所以这6个线程只能串行。那么最后一个线程肯定很慢
+	
+	所以这个redis的key是不是设计不合理？因为会存在多个线程修改同一个id，而我们只想锁住这个binlog，但是这个记录的id会产生多个binlog。
+		想错了，如果只锁住当前这个binlog，那么相当于每个binlog都会直接抢到锁，直接执行。加入有V1，V2两个更新操作，同步V1时假设发生了FullGC，V2同步完了，
+		V1继续同步。导致V2被V1覆盖，所以有并发问题。
+		如果锁id，那么假设V2先抢到锁，查询库得到V2数据，同步到ES，释放锁。V1抢到锁，查询DB出来的还是V2，再更新一次。虽然重复的动作，但是结果正确。
+	多个对于这个id的更新动作，消费binlog，是怎么做到顺序性的？比如before值吗
+	
+	
+5.	调用运输域RPC超时，运输域RPC因为查询的holo会比较慢，建议我们的RT（相应时间）设置大一点，当前设置该RPC调用的超时时间是1s
+	
+	评估一下总体的这个接口的RT，该RPC超时的占比
+	这个RPC 1s 的超时时间：是线程池的超时时间，还是RPC框架的超时间呢？是RPC框架的，而且future.get(time, unit)也有这种重载
+	我们网关的超时时间是5s，观察99线，发现这个接口的RT响应时间在2s左右，最大RT是8s的样子
+	这个RPC的99%的RT是800-900ms左右的，一般不会达到1s，极少情况下RT会超过1s。
+	
+	我感觉昨天那个RPC不适合再加RT，因为这个RPC 99%的RT都是900ms以内的，一般不会达到1s超时。而且接口的RT99%已经是2s左右了，比较慢了。感觉不需要为了极少数的情况来改变原有的配置，可能还会降低原有的体验。而且这个RPC即使超时了也是弱依赖，下次刷新数据可能就很快出来了。
+	用的地方再future.get()，future提交了就直接get，就相当于同步查询了。

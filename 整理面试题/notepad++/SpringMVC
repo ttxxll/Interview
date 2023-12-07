@@ -1,0 +1,107 @@
+SpringMVC:
+
+	1.	跳转页面
+	return "success";
+	
+	返回一个success，这个其实可以默认表示有一个JSP文件。所以我们就要提供一个success.jsp文件。
+	
+	2.	怎么找到这个文件呢？
+	
+		spring.xml中配置一个：视图解析器
+		
+		<!--视图解析器对象-->
+		<bean id="internalResourceViewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+			<property name="prefix" value="/WEB-INF/pages/"></property>
+			<property name="suffix" value=".jsp"></property>
+		</bean>
+		
+		prefix：前缀指明页面所在位置
+		suffix：后缀指明文件扩展名。
+
+		那么页面想跳转时，底层就会用这个视图解析器帮你跳转到指定的页面。
+		
+	3.	涉及的组件
+	
+		前端控制器
+		处理器映射器
+		视图解析器
+		处理器
+		处理器适配器
+		
+#####################常用注解#############################
+
+	1.	@RequestParam
+	
+		注解@RequestParam接收的参数来自requestHeader中，即请求头。 
+		
+		一般是请求参数名和后台实体类中的属性名不一致时，用此注解。指定请求中名称的参数给控制器中的形参赋值
+		
+		通常用于GET请求，比如常见的url：http://localost:8080/xxx/xxx/xxx?name=zhangsan&age=12
+		
+		来处理 Content-Type 为 默认属性application/x-www-form-urlencoded 编码的内容
+		
+		但是这样不支持批量插入数据，那么这此时就要用json批量传数据。这样就引出了@RequestBody
+	
+	2.	@RequestBody
+	
+		注解@RequestBody接收的参数是来自requestBody中，即请求体。一般用于处理：
+		application/json、application/xml等类型的数据	
+
+		使用注解@RequestBody可以将body里面所有的json数据传到后端，后端再进行解析。
+		
+		get请求方法不适用：
+        get方式是没有请求体的，它将请求参数都放到了地址栏上。
+		
+		post才存在请求体。
+		所以不能发用超链接发送请求，应该用表单发送请求。
+		
+	3.	@PathVariable
+	
+		用于绑定URL中的占位符。例如：请求url中 /delete/{id}，这个{id}就是URL占位符
+		
+		URL支持占位符是spring3.0之后加入的。是springmvc支持rest风格URL的一个重要标志。
+		
+	4.	@ResponseBody
+	
+		该注解用于将Controller的方法返回的对象，通过HttpMessageConverter接口转换为指定
+		格式的数据入：json，xml等，通过Response响应给客户端。
+		
+		将controller的方法返回的对象通过适当的转换器转换为指定的格式之后，
+		写入到response对象的body区，通常用来返回JSON数据或者是XML数据。
+		
+		在使用 @RequestMapping后，返回值通常解析为跳转路径，但是加上 @ResponseBody 后返回结果不会被解析为跳转路径，
+		而是直接写入 HTTP response body 中。 比如异步获取 json 数据，加上 @ResponseBody 后，会直接返回 json 数据。
+	
+	5.	返回值是void的情况
+		
+		执行的Controller类中的方法没有返回值（void），默认会跳转到
+		@RequestMapping(value="testVoid") testVoid.jsp页面。
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
